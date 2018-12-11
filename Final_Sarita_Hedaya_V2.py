@@ -43,8 +43,9 @@ class Ecommerce:
         self.import_customers(dir_path)
         self.import_stores(dir_path)
         self.import_products(dir_path)
-        self.import_transactions(dir_path)
         self.import_inventory(dir_path)
+        self.import_transactions(dir_path)
+
 
     # Methods that import data from .txt files, and create instances of classes as values in dicitonaries
     def import_customers(self, dir_path):
@@ -74,18 +75,6 @@ class Ecommerce:
         except ValueError as e:
             print(e)        
 
-    def import_transactions(self, dir_path):
-        """ read the transactions file, update the customer to note the purchase, update store to 
-            note the sell.
-        """
-        transactions_file = os.path.join(dir_path, "transactions.txt")
-        try:
-            for cust_id, quantity, product_id, store_id in file_reader(transactions_file, 4, '|', True):
-                self.customers[cust_id].buy_product(product_id, quantity) # adds dictionary entry pair. See def in class Customer
-                self.stores[store_id].sell_product(product_id, quantity) # adds a customer and product sold in store. See def in Store class.
-        except ValueError as e:
-            print(e)     
-
     def import_inventory(self, dir_path):
         """ reads inventory from file in dir_path and adds them to a dictionary self.inventory """
         products_file = os.path.join(dir_path, "inventory.txt")
@@ -95,7 +84,21 @@ class Ecommerce:
         except ValueError as e:
             print(e)
 
-    # # Print summary information as tables
+    def import_transactions(self, dir_path):
+        """ read the transactions file, update the customer to note the purchase, update store to 
+            note the sell. Only sell if item in stock. If customer wants more than whats in stock he will recieve the stock.
+        """
+        transactions_file = os.path.join(dir_path, "transactions.txt")
+        try:
+            for cust_id, quantity, product_id, store_id in file_reader(transactions_file, 4, '|', True):
+                print("Customer {} wants {} of {}. Store {} has {} in stock. Customer will recieve {}".format(cust_id, quantity, product_id, store_id, self.stores[store_id].products[product_id], min(int(quantity), self.stores[store_id].products[product_id])))
+                self.customers[cust_id].buy_product(product_id, min(int(quantity), self.stores[store_id].products[product_id])) # adds dictionary entry pair. See def in class Customer
+                self.stores[store_id].sell_product(product_id, min(int(quantity), self.stores[store_id].products[product_id])) # adds a customer and product sold in store. See def in Store class.
+        except ValueError as e:
+            print(e)    
+
+
+    # Print summary information as tables
     # def customer_pt(self):
     #     """ create a customer pretty table with info the customer and products """
     #     customer_pt = PrettyTable() # initialize pt
@@ -123,7 +126,8 @@ class Ecommerce:
 
 class Customer:
     """ Keeps track of all information concerning customers, 
-    including what happens when a customer takes a new course """
+    including what happens when a customer takes a new course 
+    """
     def __init__(self, cust_id, name):
         self.cust_id = cust_id
         self.name = name
@@ -140,13 +144,14 @@ class Customer:
 
     # def pt_row(self):
     #     """ return the values for the customers pretty table for self """
-    #     qty = self.product.remaining(self.courses)
-    #     return [self.name, self.product_name, qty]
+    #     qty = self.products[product_id]
+    #     return [self.name, product_id, qty]
         
             
 class Store:
     """ Keeps track of all information concerning Stores, 
-    including what happens to the store when a customer buys a product """
+    including what happens to the store when a customer buys a product 
+    """
     def __init__(self, store_id, name):
         self.store_id = store_id
         self.name = name
@@ -228,7 +233,7 @@ class EcommerceTest(unittest.TestCase):
         self.assertEqual(final.customers['c01'].name, "Debugging Dinesh")
         self.assertEqual(final.customers['c03'].name, "GitHub Gus")
         self.assertEqual(final.customers['c01'].products, {'p03': 1, 'p02': 1, 'p01': 6, 'p04': 1, 'p05': 11})
-        self.assertEqual(final.customers['c02'].products, {'p03': 1, 'p02': 1 , 'p04': 1, 'p05': 4+2+2, 'p06': 1+1+5+1+2+2+4}) # values entered manually to ensure all data is being read
+        self.assertEqual(final.customers['c02'].products, {'p03': 0, 'p02': 0, 'p04': 1, 'p05': 4+2+2, 'p06': 1+1+5+1+2+2+4}) # values entered manually to ensure all data is being read
 
     def test_store_instance(self):
         """Tests several store instances by comparing the values in the instances to the correct values"""
@@ -237,6 +242,7 @@ class EcommerceTest(unittest.TestCase):
         # self.assertEqual(final.stores['s00'].products, {'p00': 91, 'p01': 27}) # tested inventory before transactions
         self.assertEqual(final.stores['s00'].products, {'p00': 91-4, 'p01': 27-10}) # tests after transaction, sold 4 p00 and 10 p10
         self.assertEqual(final.stores['s01'].name, "Ben's Books")
+        self.assertEqual(final.stores['s01'].products, {'p02': 2-1-1, 'p03': 1-1, 'p04': 31-1-1-1})
         self.assertEqual(final.stores['s02'].name, "Dariel's Donuts")
         # self.assertEqual(final.stores['s02'].products, {'p05': 72, 'p06': 100}) # tested inventory before transactions
         self.assertEqual(final.stores['s02'].products, {'p05': 72-25, 'p06': 100-36}) # tests after transaction. Sold 25 of p05 and 36 of p06
