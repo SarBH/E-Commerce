@@ -117,8 +117,6 @@ class Ecommerce:
                 store_pt.add_row(row) #add it to the pt
         return store_pt
 
-
-
 class Customer:
     """ Keeps track of all information concerning customers, 
     including what happens when a customer takes a new course 
@@ -142,8 +140,7 @@ class Customer:
         for product_id, quantity in self.products.items():
             yield [self.name, product_id, quantity]
 
-        
-            
+                
 class Store:
     """ Keeps track of all information concerning Stores, 
     including what happens to the store when a customer buys a product 
@@ -162,7 +159,7 @@ class Store:
     def sell_product(self, product_id, quantity, cust_id):
         """ tell the store that a Customer bought a product """
         self.products[product_id] -= int(quantity)
-        self.sales[product_id][cust_id] += int(quantity)
+        self.sales[product_id][cust_id] += int(quantity) #keep track of what sold and to who. Necessary for store summary table.
 
     def pt_header(self):
         return ['Store', 'Products', 'Customers', 'Quantity Sold']
@@ -170,20 +167,23 @@ class Store:
     def pt_row(self):
         """ this generator yields the rows that go into the Store PrettyTable """
         product_qty = 0
+        cust_list = []
         for product_id, sales_info in self.sales.items():
             for cust_id, quantity in sales_info.items():
                 product_qty += quantity
-            yield [self.name, product_id, cust_id, product_qty]
+                cust_list.append(cust_id)
+            yield [self.name, product_id, sorted(cust_list), product_qty]
             product_qty = 0
+            cust_list = []
         
 
 def main():
     final = Ecommerce('G:\My Drive\F18\SSW-810\FINAL')
+    print("Store Summary")
+    print(final.store_pt())
     print("Customer Summary")
     print(final.customer_pt())
-    print("Store Summary")
-    store_summary = print(final.store_pt())
-
+    
 
 class EcommerceTest(unittest.TestCase):
     def test_customer_instance(self):
