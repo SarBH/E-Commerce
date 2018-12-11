@@ -93,35 +93,30 @@ class Ecommerce:
             for cust_id, quantity, product_id, store_id in file_reader(transactions_file, 4, '|', True):
                 print("Customer {} wants {} of {}. Store {} has {} in stock. Customer will recieve {}".format(cust_id, quantity, product_id, store_id, self.stores[store_id].products[product_id], min(int(quantity), self.stores[store_id].products[product_id])))
                 self.customers[cust_id].buy_product(product_id, min(int(quantity), self.stores[store_id].products[product_id])) # adds dictionary entry pair. See def in class Customer
-                self.stores[store_id].sell_product(product_id, min(int(quantity), self.stores[store_id].products[product_id])) # adds a customer and product sold in store. See def in Store class.
+                self.stores[store_id].sell_product(product_id, min(int(quantity), self.stores[store_id].products[product_id]), cust_id) # adds a customer and product sold in store. See def in Store class.
         except ValueError as e:
             print(e)    
 
 
     # Print summary information as tables
-    # def customer_pt(self):
-    #     """ create a customer pretty table with info the customer and products """
-    #     customer_pt = PrettyTable() # initialize pt
-    #     customer_pt.field_names = Customer.pt_header(self) #set headers as defined in function inside Customer class
-    #     for customer in self.customers.values():
-    #         customer_pt.add_row(Customer.pt_row()) # add rows using the output of pt_row defined in Customer class
-    #     return customer_pt
+    def customer_pt(self):
+        """ create a customer pretty table with info the customer and products purchased """
+        customer_pt = PrettyTable() # initialize pt
+        customer_pt.field_names = Customer.pt_header(self) #set headers as defined in function inside Customer class
+        for customer in self.customers.values():
+            for row in customer.pt_row():
+                customer_pt.add_row(row) # add rows using the output of pt_row defined in Customer class
+        return customer_pt
 
-    # def store_pt(self):
-    #     """ create an store pretty table with info the store and products """
-    #     store_pt = PrettyTable()
-    #     store_pt.field_names = Store.pt_header(self)
-    #     for row in Store.pt_row(self): #for each list in the set of lists returned by pt_row (each list is a row)
-    #         store_pt.add_row(row) #add it to the pt
-    #     return store_pt
+    def store_pt(self):
+        """ create a store pretty table with info about sales """
+        store_pt = PrettyTable()
+        store_pt.field_names = Store.pt_header(self)
+        for store in self.stores.values():
+            for row in store.pt_row(): #for each list in the set of lists returned by pt_row (each list is a row)
+                store_pt.add_row(row) #add it to the pt
+        return store_pt
 
-    # def product_prettytable(self):
-    #     """ create a pretty table containing information of courses associated with products """
-    #     product_prettytable = PrettyTable() # initialize pt
-    #     product_prettytable.field_names = product.pt_header(self) #set headers as defined in function inside Customer class
-    #     for product in self._products.values():
-    #         product_prettytable.add_row(product.pt_row()) # add rows using the output of pt_row defined in Customer class
-    #     return product_prettytable
 
 
 class Customer:
@@ -138,14 +133,15 @@ class Customer:
         """ note that the customer bought a product"""
         self.products[product_id] += int(quantity)
              
-    # def pt_header(self):
-    #     """ return a list of the fields in the prettytable """
-    #     return ['Customer Name', 'Product', 'Quantity Purchased']
+    def pt_header(self):
+        """ return a list of the fields in the prettytable """
+        return ['Customer Name', 'Product', 'Quantity Purchased']
 
-    # def pt_row(self):
-    #     """ return the values for the customers pretty table for self """
-    #     qty = self.products[product_id]
-    #     return [self.name, product_id, qty]
+    def pt_row(self):
+        """ this generator yields the rows that go into the Customer PrettyTable """
+        for product_id, quantity in self.products.items():
+            yield [self.name, product_id, quantity]
+
         
             
 class Store:
@@ -157,73 +153,36 @@ class Store:
         self.name = name
 
         self.products = defaultdict(int)  # self.products[product_id] = inventory_qty
+        self.sales = defaultdict(lambda: defaultdict(int))
 
     def add_product(self, product_id, quantity=0):
         """adds products from inventory"""
         self.products[product_id] += int(quantity) #quantity is brought in from the file reader as a string, force it into an int to perform math addition
 
-    def sell_product(self, product_id, quantity):
+    def sell_product(self, product_id, quantity, cust_id):
         """ tell the store that a Customer bought a product """
-        self.products[product_id] -= int(quantity) 
+        self.products[product_id] -= int(quantity)
+        self.sales[product_id][cust_id] += int(quantity)
 
-    # def pt_header(self):
-    #     return ['CWID', 'Name', 'Department', 'Course', '#customers']
+    def pt_header(self):
+        return ['Store', 'Products', 'Customers', 'Quantity Sold']
 
-    # def pt_row(self): #new store.pt_row returns 10 lists, each list will be a row
-    #     """ a generator to return the rows with course and number of customers """
-    #     return list(db.execute("""
-    #         select I.CWID, I.Name, I.Dept, G.Course, count(*) as CustomerPerClass 
-    #         FROM HW11_stores I
-    #         join HW11_transactions G
-    #         on I.CWID = G.Instructor_CWID
-    #         group by G.Course"""))
+    def pt_row(self):
+        """ this generator yields the rows that go into the Store PrettyTable """
+        product_qty = 0
+        for product_id, sales_info in self.sales.items():
+            for cust_id, quantity in sales_info.items():
+                product_qty += quantity
+            yield [self.name, product_id, cust_id, product_qty]
+            product_qty = 0
         
 
-
-# class Product:
-#     """ Track all the information regarding the product, inlcuding its required and elective courses """
-#     def __init__(self, product_id, description):
-#         self.product_id = product_id
-#         self.description = description
-        
-
-#     def add_product(self, flag, course):
-#         """ notes another required course or elective """
-#         if flag.upper() == 'E':
-#             self._electives.add(course)
-#         elif flag.upper() == 'R':
-#             self._required.add(course)
-#         else:
-#             raise ValueError(f"Flag {flag} is invalid for course {course}")
-
-#     def pt_header(self):
-#         """ return a list of the fields in the prettytable """
-#         return ['product', 'Required Courses', 'Elective Courses']
-
-#     def pt_row(self):
-#         """ returns the list of values that populate the prettytable for a specific product """
-#         return [self._department, self._required, self._electives]
-
-#     def remaining(self, courses):
-#         """ Calculate completed_courses, remaining_required, remaining_electives from 
-#         a dictionary of course=transaction for a single customer """
-#         completed_courses = {course for course, transaction in courses.items() if transaction in self.passing_transactions}
-#         remaining_required = self._required - completed_courses
-#         if self._electives.intersection(completed_courses):
-#             remaining_electives = None
-#         else:
-#             remaining_electives = self._electives
-#         return completed_courses, remaining_required, remaining_electives
-
-
-# def main():
-    # final = Ecommerce('G:\My Drive\F18\SSW-810\Week 10')
-    # print("Customer Summary")
-    # customer_summary = print(final.customer_pt())
-    # print("Store Summary")
-    # store_summary = print(final.store_pt())
-    # print("product Summary")
-    # product_summary = print(final.product_prettytable())
+def main():
+    final = Ecommerce('G:\My Drive\F18\SSW-810\FINAL')
+    print("Customer Summary")
+    print(final.customer_pt())
+    print("Store Summary")
+    store_summary = print(final.store_pt())
 
 
 class EcommerceTest(unittest.TestCase):
@@ -248,14 +207,7 @@ class EcommerceTest(unittest.TestCase):
         self.assertEqual(final.stores['s02'].products, {'p05': 72-25, 'p06': 100-36}) # tests after transaction. Sold 25 of p05 and 36 of p06
         
 
-    # def test_product_instance(self):
-    #     """ Tests product instances to compare to the correct values """
-    #     final = Ecommerce('G:\My Drive\F18\SSW-810\FINAL')
-    #     self.assertEqual(final._products['SFEN']._required, {'SSW 540', 'SSW 555', 'SSW 564', 'SSW 567'})
-    #     self.assertEqual(final._products['SFEN']._electives, {'CS 501', 'CS 545', 'CS 513'})
-
-
 if __name__ == '__main__':
     unittest.main(exit = False, verbosity = 2)
-    # main()
+    main()
     
